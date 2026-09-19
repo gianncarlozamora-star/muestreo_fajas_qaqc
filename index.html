@@ -1,0 +1,370 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><title>Muestreo QAQC</title>
+<style>
+:root {
+  --bg: #f3f7f6; --card: #ffffff; --fg: #122120; --muted: #52645f; --line: #cfdcd9;
+  --accent: #0f766e; --accent-fg: #ffffff; --accent-soft: #d9f0ec;
+  --warn: #9a4a06; --warn-soft: #fdecd4; --ok: #166534; --ok-soft: #dcf5e3; --field: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1514; --card: #152220; --fg: #e6f0ee; --muted: #9fb3af; --line: #294540;
+    --accent: #2dd4bf; --accent-fg: #06211e; --accent-soft: #12403b;
+    --warn: #fbbf24; --warn-soft: #3b2b0b; --ok: #4ade80; --ok-soft: #10381f; --field: #0f1a19;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1514; --card: #152220; --fg: #e6f0ee; --muted: #9fb3af; --line: #294540;
+  --accent: #2dd4bf; --accent-fg: #06211e; --accent-soft: #12403b;
+  --warn: #fbbf24; --warn-soft: #3b2b0b; --ok: #4ade80; --ok-soft: #10381f; --field: #0f1a19;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; font-size: 16px; line-height: 1.4;
+  padding-inline: 16px; padding-block: 20px 64px;
+}
+.wrap { max-width: 520px; margin-inline: auto; display: flex; flex-direction: column; gap: 28px; }
+.brand { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+h1 { font-size: 24px; line-height: 1.15; margin: 4px 0 2px; text-wrap: balance; }
+.date { color: var(--muted); font-size: 14px; }
+h2 { font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+.hint { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+section { display: block; }
+
+.seg { display: grid; gap: 8px; }
+.seg.two { grid-template-columns: 1fr 1fr; }
+.seg.five { grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.seg button {
+  font: inherit; color: var(--fg); background: var(--card); border: 2px solid var(--line); border-radius: 12px;
+  min-height: 56px; padding: 6px 4px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+}
+.seg.two button { font-size: 20px; font-weight: 700; min-height: 60px; }
+.seg.five button .n { font-weight: 700; font-size: 17px; }
+.seg.five button .t { font-size: 11px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.seg button[aria-pressed="true"] .t { color: var(--accent-fg); opacity: 0.85; }
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.field > label { font-weight: 600; }
+.field .sub { color: var(--muted); font-size: 13px; font-weight: 400; }
+input[type="time"], input[type="number"], input[type="text"], select {
+  font: inherit; font-size: 22px; color: var(--fg); background: var(--field); border: 2px solid var(--line); border-radius: 12px;
+  min-height: 56px; padding: 8px 14px; width: 100%; font-variant-numeric: tabular-nums;
+}
+input.small, select { font-size: 18px; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: stretch; }
+.stepper { display: grid; grid-template-columns: 60px 1fr 60px; gap: 8px; }
+.stepper input { text-align: center; font-weight: 700; }
+.btn {
+  font: inherit; font-weight: 700; border-radius: 12px; min-height: 56px; padding: 8px 18px; cursor: pointer;
+  border: 2px solid var(--line); background: var(--card); color: var(--fg);
+}
+.btn.step { font-size: 28px; padding: 0; line-height: 1; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn.wide { width: 100%; }
+
+.msg { border-radius: 12px; padding: 12px 14px; font-size: 15px; background: var(--warn-soft); color: var(--warn); font-weight: 600; }
+.msg[hidden] { display: none; }
+
+.summary { font-size: 15px; color: var(--muted); margin: 0 0 12px; }
+.summary strong { color: var(--fg); }
+.cuts { display: flex; flex-direction: column; gap: 10px; padding: 0; margin: 0; list-style: none; }
+.cut {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px;
+  background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 12px 14px;
+}
+.cut.next { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.cut.done { background: var(--ok-soft); border-color: transparent; }
+.cut .lbl { font-size: 13px; color: var(--muted); font-weight: 600; }
+.cut .time { font-size: 34px; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.cut .when { font-size: 14px; color: var(--muted); }
+.cut.next .when { color: var(--accent); font-weight: 700; }
+.cut.done .lbl, .cut.done .when { color: var(--ok); }
+.cut .act { min-width: 118px; }
+.cut .act .btn { width: 100%; }
+.cut .undo { background: none; border: 0; color: var(--ok); font: inherit; font-size: 14px; font-weight: 600; text-decoration: underline; padding: 8px 0 0; cursor: pointer; width: 100%; }
+.cut .doneTxt { display: flex; align-items: center; justify-content: flex-end; gap: 6px; color: var(--ok); font-weight: 800; font-size: 20px; font-variant-numeric: tabular-nums; }
+.cut svg { width: 22px; height: 22px; }
+
+
+textarea {
+  font: inherit; font-size: 14px; width: 100%; min-height: 190px; color: var(--fg); background: var(--field);
+  border: 2px solid var(--line); border-radius: 12px; padding: 12px; resize: vertical; line-height: 1.5;
+}
+.actions { display: grid; gap: 10px; margin-top: 12px; }
+a.btn { display: flex; align-items: center; justify-content: center; text-decoration: none; text-align: center; }
+.reset { margin-top: 4px; }
+.btn[disabled], a.btn[aria-disabled="true"] { opacity: 0.4; pointer-events: none; }
+.linkbtn { background: none; border: 0; font: inherit; font-size: 14px; color: var(--muted); text-decoration: underline; padding: 8px; cursor: pointer; }
+.linkbtn[hidden] { display: none; }
+.foot { font-size: 13px; color: var(--muted); text-align: center; }
+@media (prefers-reduced-motion: no-preference) { .cut { transition: background-color .15s, border-color .15s; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">Muestreo QAQC · Fajas 10 y 11</div>
+    <h1>Horas de corte del puntual</h1>
+    <div class="date" id="dateLbl"></div>
+  </header>
+
+  <section>
+    <h2>1 · Faja y puntual</h2>
+    <div class="seg two" id="fajaSeg" role="group" aria-label="Faja">
+      <button type="button" data-faja="10" aria-pressed="true">Faja 10</button>
+      <button type="button" data-faja="11" aria-pressed="false">Faja 11</button>
+    </div>
+    <div style="height:10px"></div>
+    <div class="seg five" id="puntSeg" role="group" aria-label="Puntual"></div>
+  </section>
+
+  <section>
+    <h2>2 · Lee el display</h2>
+    <p class="hint">Antes de que empiece el puntual, mira el display del muestreador y anota estos datos.</p>
+    <div class="field">
+      <label for="lect">Hora de lectura</label>
+      <div class="row">
+        <input type="time" id="lect">
+        <button type="button" class="btn" id="nowBtn">Ahora</button>
+      </div>
+    </div>
+    <div class="field">
+      <label for="mins">Minutos que faltan para el siguiente corte</label>
+      <div class="stepper">
+        <button type="button" class="btn step" data-step="mins" data-d="-1" aria-label="Restar un minuto">−</button>
+        <input type="number" id="mins" inputmode="numeric" min="0" max="60" placeholder="0">
+        <button type="button" class="btn step" data-step="mins" data-d="1" aria-label="Sumar un minuto">+</button>
+      </div>
+    </div>
+    <div class="field">
+      <label for="freq">Frecuencia de corte <span class="sub">(minutos, entre 20 y 40)</span></label>
+      <div class="stepper">
+        <button type="button" class="btn step" data-step="freq" data-d="-1" aria-label="Restar un minuto">−</button>
+        <input type="number" id="freq" inputmode="numeric" min="20" max="40" placeholder="29">
+        <button type="button" class="btn step" data-step="freq" data-d="1" aria-label="Sumar un minuto">+</button>
+      </div>
+    </div>
+    <div class="msg" id="msg" role="alert" hidden></div>
+  </section>
+
+  <section id="cutsSec">
+    <h2>3 · Horas de corte</h2>
+    <p class="summary" id="summary"></p>
+    <ol class="cuts" id="cuts"></ol>
+  </section>
+
+  <section>
+    <h2>4 · Enviar</h2>
+    <p class="hint" id="sendHint"></p>
+    <div id="sendBox" hidden>
+      <textarea id="sumTxt" readonly aria-label="Resumen del puntual"></textarea>
+    </div>
+    <div class="actions">
+      <a class="btn primary" id="waBtn" href="#" target="_blank" rel="noopener" aria-disabled="true">Enviar por WhatsApp</a>
+      <button type="button" class="btn" id="copyBtn" disabled>Copiar mensaje</button>
+      <button type="button" class="linkbtn" id="forceBtn" hidden>Faltan cortes (faja parada). Enviar igual</button>
+      <button type="button" class="btn reset" id="resetBtn">Borrar este puntual</button>
+    </div>
+  </section>
+
+  <div class="foot">Los datos quedan guardados en este celular.</div>
+</div>
+
+<script>
+(function () {
+  var PUNT = [
+    { id: '1ra', ini: 420, fin: 480, opt: true },
+    { id: '2da', ini: 480, fin: 660 },
+    { id: '3ra', ini: 660, fin: 840 },
+    { id: '4ta', ini: 840, fin: 960 },
+    { id: '5ta', ini: 960, fin: 1140 }
+  ];
+  var LS_KEY = 'qaqc-cortes-v1';
+  var $ = function (id) { return document.getElementById(id); };
+  var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+  var fmt = function (m) { m = ((m % 1440) + 1440) % 1440; return pad(Math.floor(m / 60)) + ':' + pad(m % 60); };
+  var toMin = function (s) { if (!s || s.indexOf(':') < 0) return null; var p = s.split(':'); return (+p[0]) * 60 + (+p[1]); };
+  var num = function (s) { if (s === '' || s === null || s === undefined) return null; var n = Number(s); return isFinite(n) ? n : null; };
+  var h12 = function (m) { var h = m / 60; return h > 12 ? h - 12 : h; };
+  var nowMin = function () { var d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
+  var nowStr = function () { return fmt(nowMin()); };
+  var today = new Date();
+  var iso = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());
+  var dLbl = today.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  $('dateLbl').textContent = dLbl.charAt(0).toUpperCase() + dLbl.slice(1);
+
+  var store = { records: {}, ui: {} };
+  try { var raw = localStorage.getItem(LS_KEY); if (raw) store = JSON.parse(raw) || store; } catch (e) {}
+  if (!store.records) store.records = {};
+  if (!store.ui) store.ui = {};
+  function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(store)); } catch (e) {} }
+
+  var faja = store.ui.faja || '10';
+  var punt = store.ui.punt;
+  if (!punt) {
+    var nm = nowMin(); punt = PUNT[PUNT.length - 1].id;
+    for (var i = 0; i < PUNT.length; i++) { if (PUNT[i].fin > nm) { punt = PUNT[i].id; break; } }
+  }
+  var pOf = function (id) { return PUNT.filter(function (p) { return p.id === id; })[0]; };
+  var key = function () { return iso + '|' + faja + '|' + punt; };
+  function rec() {
+    var k = key();
+    if (!store.records[k]) store.records[k] = { lect: nowStr(), mins: '', freq: '', real: {}, force: false };
+    return store.records[k];
+  }
+
+  // ---- botones de faja y puntual ----
+  var puntSeg = $('puntSeg');
+  PUNT.forEach(function (p) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.setAttribute('data-punt', p.id);
+    b.innerHTML = '<span class="n">' + p.id + '</span><span class="t">' + (p.opt ? 'opcional' : h12(p.ini) + '–' + h12(p.fin)) + '</span>';
+    puntSeg.appendChild(b);
+  });
+  function paintSeg() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-faja]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-faja') === faja)); });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-punt]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-punt') === punt)); });
+  }
+  function loadInputs() {
+    var r = rec();
+    $('lect').value = r.lect; $('mins').value = r.mins; $('freq').value = r.freq;
+  }
+  function select(f, p) {
+    if (f) faja = f; if (p) punt = p;
+    store.ui = { faja: faja, punt: punt }; save();
+    paintSeg(); loadInputs(); render();
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('button'); if (!t) return;
+    if (t.hasAttribute('data-faja')) select(t.getAttribute('data-faja'), null);
+    else if (t.hasAttribute('data-punt')) select(null, t.getAttribute('data-punt'));
+    else if (t.hasAttribute('data-step')) {
+      var id = t.getAttribute('data-step'), d = +t.getAttribute('data-d');
+      var cur = num($(id).value); if (cur === null) cur = id === 'freq' ? 29 : 0;
+      var nv = Math.max(0, cur + d); $(id).value = nv; rec()[id] = String(nv); save(); render();
+    }
+  });
+
+  // ---- inputs ----
+  ['lect', 'mins', 'freq'].forEach(function (id) {
+    $(id).addEventListener('input', function () { rec()[id] = $(id).value; save(); render(); });
+  });
+  $('nowBtn').addEventListener('click', function () { $('lect').value = nowStr(); rec().lect = $('lect').value; save(); render(); });
+
+  // ---- cálculo ----
+  function compute(r, p) {
+    var lect = toMin(r.lect), mins = num(r.mins), freq = num(r.freq);
+    if (lect === null || mins === null || freq === null) return { status: 'pending' };
+    if (freq < 20 || freq > 40) return { status: 'freq' };
+    if (mins < 0 || mins > freq) return { status: 'mins' };
+    var t = lect + mins;
+    if (t < p.ini) t += Math.ceil((p.ini - t) / freq) * freq;
+    var cuts = [];
+    for (; t < p.fin; t += freq) cuts.push(t);
+    return { status: 'ok', cuts: cuts, freq: freq };
+  }
+
+  var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+
+  function whenTxt(mins) {
+    var d = mins - nowMin();
+    if (d > 1) return 'en ' + d + ' min';
+    if (d >= -1) return 'es ahora';
+    return 'pasó hace ' + (-d) + ' min';
+  }
+
+  function summaryText(r, p, c) {
+    var L = [];
+    L.push('QAQC muestreo de fajas');
+    L.push('Faja ' + faja + ' · ' + punt + ' puntual (' + fmt(p.ini) + ' a ' + fmt(p.fin) + ')');
+    L.push(dLbl);
+    L.push('Lectura ' + (r.lect || '--:--') + ' · faltaban ' + (r.mins === '' ? '--' : r.mins) + ' min · frecuencia ' + (r.freq === '' ? '--' : r.freq) + ' min');
+    if (c.status === 'ok') {
+      L.push('Cortes (programado → real):');
+      c.cuts.forEach(function (m, i) { L.push((i + 1) + ') ' + fmt(m) + ' → ' + (r.real[i] || 'sin registrar')); });
+    }
+    return L.join('\n');
+  }
+
+  function render() {
+    var r = rec(), p = pOf(punt), c = compute(r, p);
+    var msg = $('msg');
+    if (c.status === 'freq') { msg.textContent = 'La frecuencia suele estar entre 20 y 40 minutos. Revisa el display.'; msg.hidden = false; }
+    else if (c.status === 'mins') { msg.textContent = 'Los minutos que faltan no pueden ser más que la frecuencia. Revisa el display.'; msg.hidden = false; }
+    else msg.hidden = true;
+
+    var list = $('cuts'); list.innerHTML = '';
+    var sum = $('summary');
+    if (c.status !== 'ok') {
+      sum.innerHTML = c.status === 'pending' ? 'Completa la hora de lectura, los minutos y la frecuencia para ver las horas de corte.' : 'Corrige los datos para ver las horas de corte.';
+    } else if (!c.cuts.length) {
+      sum.innerHTML = 'No hay cortes dentro de este puntual (' + fmt(p.ini) + ' a ' + fmt(p.fin) + ').';
+    } else {
+      var done = c.cuts.filter(function (m, i) { return r.real[i]; }).length;
+      sum.innerHTML = '<strong>' + c.cuts.length + ' cortes</strong> entre ' + fmt(c.cuts[0]) + ' y ' + fmt(c.cuts[c.cuts.length - 1]) + ' · hechos: <strong>' + done + '</strong>';
+      var nextIdx = -1;
+      for (var i = 0; i < c.cuts.length; i++) { if (!r.real[i]) { nextIdx = i; break; } }
+      c.cuts.forEach(function (m, i) {
+        var li = document.createElement('li');
+        var isDone = !!r.real[i];
+        li.className = 'cut' + (isDone ? ' done' : (i === nextIdx ? ' next' : ''));
+        var left = '<div><div class="lbl">Corte ' + (i + 1) + '</div><div class="time">' + fmt(m) + '</div><div class="when">' +
+          (isDone ? 'Programado ' + fmt(m) : whenTxt(m)) + '</div></div>';
+        var right = isDone
+          ? '<div class="act"><div class="doneTxt">' + CHECK + '<span>' + r.real[i] + '</span></div><button type="button" class="undo" data-undo="' + i + '">Deshacer</button></div>'
+          : '<div class="act"><button type="button" class="btn ' + (i === nextIdx ? 'primary' : '') + '" data-done="' + i + '">Hecho</button></div>';
+        li.innerHTML = left + right;
+        list.appendChild(li);
+      });
+    }
+    var total = c.status === 'ok' ? c.cuts.length : 0;
+    var hechos = total ? c.cuts.filter(function (m, i) { return r.real[i]; }).length : 0;
+    var complete = total > 0 && hechos === total;
+    var unlocked = complete || (total > 0 && r.force);
+    $('sendBox').hidden = !unlocked;
+    $('waBtn').setAttribute('aria-disabled', String(!unlocked));
+    $('copyBtn').disabled = !unlocked;
+    $('forceBtn').hidden = !(total > 0 && !complete && !r.force);
+    $('sendHint').textContent = unlocked ? 'Listo. Envía el mensaje por WhatsApp o cópialo.'
+      : (total ? 'Faltan ' + (total - hechos) + ' de ' + total + ' cortes por marcar como hechos.' : 'Se activa cuando termines todos los cortes.');
+    var text = summaryText(r, p, c);
+    $('sumTxt').value = text;
+    $('waBtn').setAttribute('href', unlocked ? 'https://wa.me/?text=' + encodeURIComponent(text) : '#');
+  }
+
+  $('cuts').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    var r = rec();
+    if (b.hasAttribute('data-done')) { r.real[b.getAttribute('data-done')] = nowStr(); }
+    else if (b.hasAttribute('data-undo')) { delete r.real[b.getAttribute('data-undo')]; }
+    save(); render();
+  });
+
+  var copyBtn = $('copyBtn');
+  copyBtn.addEventListener('click', function () {
+    var ta = $('sumTxt'), txt = ta.value, ok = false;
+    function flash(t) { copyBtn.textContent = t; setTimeout(function () { copyBtn.textContent = 'Copiar mensaje'; }, 1600); }
+    function fallback() { try { ta.focus(); ta.select(); ok = document.execCommand('copy'); } catch (e) { ok = false; } flash(ok ? 'Copiado' : 'Mantén presionado el texto para copiar'); }
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(txt).then(function () { flash('Copiado'); }, fallback); }
+    else fallback();
+  });
+
+  $('forceBtn').addEventListener('click', function () { rec().force = true; save(); render(); });
+
+  var resetBtn = $('resetBtn'), armed = false, armT = null;
+  resetBtn.addEventListener('click', function () {
+    if (!armed) {
+      armed = true; resetBtn.textContent = 'Toca otra vez para borrar';
+      armT = setTimeout(function () { armed = false; resetBtn.textContent = 'Borrar este puntual'; }, 4000);
+      return;
+    }
+    clearTimeout(armT); armed = false; resetBtn.textContent = 'Borrar este puntual';
+    delete store.records[key()]; save(); loadInputs(); render();
+  });
+
+  paintSeg(); loadInputs(); render();
+  setInterval(function () { if (document.activeElement && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return; render(); }, 20000);
+})();
+</script>
+</body></html>
